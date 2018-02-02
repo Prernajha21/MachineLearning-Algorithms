@@ -1,0 +1,190 @@
+import sys
+import math
+import random
+
+# Read files from the command line
+datafile = sys.argv[1]
+f = open(datafile, 'r')
+data = []
+#i = 0
+l = f.readline()
+
+#Read Data
+while(l != ''):
+	a = l.split()
+	l2 = []
+	for j in range(0, len(a), 1):
+		l2.append(float(a[j]))
+	data.append(l2)
+	#print(data)
+	l = f.readline()
+
+rows = len(data)
+cols = len(data[0])
+print("rows:",rows," ","columns:",cols)
+
+# Bootstrapped datasets
+'''def subsample(data,trainlabels,ratio=1.0):
+i = 0
+sample=list()
+boot_trainlabels = {}
+n_sample = round(len(data)*ratio)
+while(len(sample) < n_sample):
+	while(i<len(data)):
+		index = random.randrange(len(data))
+		if(trainlabels.get(index) != None):
+		#print(index)
+			sample.append(data[index])
+			boot_trainlabels[i] = trainlabels[index]
+		i += 1
+#result = {'boot_data':sample,'boot_trainlabels':boot_trainlabels}
+	#return sample, boot_trainlabels
+#	return result
+
+bootstrap = subsample(data,1)'''
+'''def reducedSample(bootstrap,ratio = math.ceil(1/3)):
+	sample2 = list()
+	m_sample = round(len(data[0])*ratio)
+	#while len(sample2) < m_sample:
+	index = random.randrange(len(data[0]))
+	for row in bootstrap:
+		sample2.append(row[index]) 
+	return sample2
+reduced = reducedSample(bootstrap,ratio = math.ceil(1/3))
+print(reduced)
+print(bootstrap)'''
+
+#Read Training Labels   
+trainlabelfile = sys.argv[2]
+
+f = open(trainlabelfile, 'r')
+trainlabels = {}
+n = [0,0]
+l = f.readline()
+while(l != ''):
+	a = l.split()
+	#print("a = ",a)
+	trainlabels[int(a[1])] = int(a[0])
+
+	'''if(trainlabels[int(a[1])] == 0):
+		trainlabels[int(a[1])] = -1'''
+
+	l = f.readline()
+	n[int(a[0])] += 1
+#trows = len(trainlabels)
+#print(data)
+#print("trainlabels",trainlabels) 
+print("================================================")
+
+#Define classifier with gini index
+def giniClassifier(data,labels,col):
+	colvals = {}
+	indices = []
+	rows = 0
+	minus = 0
+	for i in range(0,len(data),1):
+		if(labels.get(i) != None):
+			colvals[i] = data[i][col]
+			indices.append(i)
+			rows+=1
+			if(labels[i]==0):
+				minus += 1
+	#sorted_indices = sorted(indices, key= lambda k: colvals[k])
+	sorted_indices = sorted(indices, key=colvals.__getitem__)
+
+	lsize = 1
+	rsize = rows - 1
+	lp = 0
+	rp = minus
+	if(labels[sorted_indices[0]]==0):
+		lp += 1
+		rp -= 1
+
+	best_s = -1
+	bestgini = 10000
+	for i in range(1,len(sorted_indices),1):
+		s = (colvals[sorted_indices[i]] + colvals[sorted_indices[i-1]])/2
+		gini = (lsize/rows) * (lp/lsize)*(1-lp/lsize) + (rsize/rows)*(rp/rsize)*(1-rp/rsize)
+		#print(lp,lsize,rp,rsize)
+		if(gini<bestgini):
+			bestgini = gini
+			best_s = s 
+		if(labels[sorted_indices[i]] == 0):
+			lp += 1
+			rp -= 1
+		lsize += 1
+		rsize -= 1
+	return(best_s,bestgini)
+ # Main Body
+bootloop = 100
+test_predictions = {}
+for i in range(0, rows, 1):
+	if(trainlabels.get(i) == None):
+		test_predictions[i] = 0
+'''for k in range(0, bootloop, 1):
+	bagged_rows = subsample(data,trainlabels,1.0)'''
+
+for k in range(0,bootloop,1):
+	i = 0
+	boot_data = []
+	boot_trainlabels = {}
+	while(i<len(data)):
+		r = random.randint(0, rows-1)
+		if(trainlabels.get(r) != None):
+			boot_data.append(data[r])
+			boot_trainlabels[i] = trainlabels[r]
+			i += 1
+	best_split = -1
+	best_col = -1
+	best_gini = 10000
+
+	for j in range(0,cols,1):
+		#[s,gini] = giniClassifier(bagged_rows['boot_data'],bagged_rows['boot_trainlabels'],j)
+		[s,gini] = giniClassifier(boot_data,boot_trainlabels,j)
+
+		#print(bagged_rows['boot_data'],bagged_rows['boot_trainlabels'])
+
+		#print(s,gini)
+		if(gini<best_gini):
+	 		best_gini = gini
+	 		best_split = s 
+	 		best_col = j
+	n = 0
+	p = 0
+	for i in range(0,rows,1):
+		if(trainlabels.get(i) != None):
+			if(data[i][best_col] < best_split):
+	 			if(trainlabels[i] == 0):
+	 				n += 1
+	 			else:
+	 				p += 1
+
+	if(n > p):
+		left = 1
+		right = 1
+	else:
+		left = 1
+		right = 1
+	
+#print("best_gini=",best_gini,"best_split=",best_split,"best_col=",best_col)
+
+	# Classify unlabeled points
+	for i in range(0,rows,1):
+		if(trainlabels.get(i) == None):
+	 		if(data[i][best_col] < best_split):
+	 			test_predictions[i] += left
+	 			#print(left,i)
+	 		else:
+	 			test_predictions[i] += right
+	 			#print(right,i) 
+	#print("++++++++++++++++++++")
+	#k += 1
+#Unlabeled Data
+for i in range(0,rows,1):
+	if(trainlabels.get(i) == None):
+		if(test_predictions[i] > 0):
+			print("1",i)
+		else:
+			print("0",i)
+	else:
+		print("Test data missing in the data file")
